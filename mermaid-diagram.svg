@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1263.5049999999999 133.8" width="1263.5049999999999" height="133.8" style="--bg:#FFFFFF;--fg:#3B3B3B;--line:#3B3B3B;--accent:#005FB8;--muted:#3B3B3BCC;--surface:#F8F8F8;--border:#3B3B3B;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="A" data-to="B" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="192.359,66.9 240.359,66.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="C" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="440.88300000000004,66.9 488.88300000000004,66.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="C" data-to="D" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="677.551,66.9 725.551,66.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="E" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="965.348,66.9 1013.348,66.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="node" data-id="A" data-label="Step 1: View Orders
+(GET /api/orders)" data-shape="rectangle">
+  <rect x="40" y="40" width="152.359" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="116.1795" y="66.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="116.1795" dy="-3.9000000000000012">Step 1: View Orders</tspan><tspan x="116.1795" dy="16.900000000000002">(GET /api/orders)</tspan></text>
+</g>
+<g class="node" data-id="B" data-label="Step 2: Track Order
+(GET /api/orders/{orderId})" data-shape="rectangle">
+  <rect x="240.359" y="40" width="200.524" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="340.621" y="66.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="340.621" dy="-3.9000000000000012">Step 2: Track Order</tspan><tspan x="340.621" dy="16.900000000000002">(GET /api/orders/{orderId})</tspan></text>
+</g>
+<g class="node" data-id="C" data-label="Step 3: Create New Order
+(POST /api/orders)" data-shape="rectangle">
+  <rect x="488.88300000000004" y="40" width="188.668" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="583.2170000000001" y="66.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="583.2170000000001" dy="-3.9000000000000012">Step 3: Create New Order</tspan><tspan x="583.2170000000001" dy="16.900000000000002">(POST /api/orders)</tspan></text>
+</g>
+<g class="node" data-id="D" data-label="Step 4: Advance &amp; Track
+(PUT /api/orders/{orderId}/status)" data-shape="rectangle">
+  <rect x="725.551" y="40" width="239.79699999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="845.4495000000001" y="66.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="845.4495000000001" dy="-3.9000000000000012">Step 4: Advance &amp; Track</tspan><tspan x="845.4495000000001" dy="16.900000000000002">(PUT /api/orders/{orderId}/status)</tspan></text>
+</g>
+<g class="node" data-id="E" data-label="Step 5: Cancel / Partial
+(POST /api/orders/.../cancel)" data-shape="rectangle">
+  <rect x="1013.348" y="40" width="210.15699999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1118.4265" y="66.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1118.4265" dy="-3.9000000000000012">Step 5: Cancel / Partial</tspan><tspan x="1118.4265" dy="16.900000000000002">(POST /api/orders/.../cancel)</tspan></text>
+</g>
+</svg>

@@ -1,0 +1,918 @@
+# Order Processing System — Solution Approach Guidelines
+
+## 1. Objective
+
+Build a production-quality **Order Processing System** using Java and Spring Boot.
+
+The solution should focus primarily on **order processing**, while implementing only the supporting components required to make the order lifecycle complete and realistic.
+
+The system must be designed for:
+
+- Scalability
+- Concurrency
+- Reliability
+- Extensibility
+- Testability
+- Fault tolerance
+- Clear separation of responsibilities
+
+There is **no UI/frontend requirement**. All functionality must be accessible and testable through REST APIs.
+
+---
+
+# 2. Technology Stack
+
+Use the following technologies unless there is a strong technical reason to use an alternative:
+
+- **Java**
+- **Spring Boot**
+- **Spring Web / REST**
+- **Spring Data JPA / Hibernate**
+- **PostgreSQL**
+- **Apache Kafka** for asynchronous/event-driven communication where appropriate
+- **Spring scheduling** for scheduled/background processing
+- **Resilience4j / Spring Cloud Circuit Breaker** for circuit breaker implementation
+- **JUnit 5**
+- **Mockito**
+- **Testcontainers** where appropriate for integration testing
+
+The application should be structured as **microservices**, with each service having a clearly defined responsibility.
+
+---
+
+# 3. Microservice Architecture
+
+Design the system as a set of independently deployable microservices.
+
+Do not unnecessarily create a large number of microservices. Services should be split based on **business responsibility and bounded contexts**.
+
+The primary focus must remain the **Order Processing Service**.
+
+Potential supporting services may include:
+
+### Order Service
+Responsible for:
+
+- Creating orders
+- Maintaining order state
+- Processing order lifecycle
+- Partial order cancellation
+- Complete order cancellation
+- Communicating with payment processing
+- Publishing order events
+- Handling order-related concurrency
+
+### Inventory / Item Service
+Responsible for:
+
+- Maintaining available items
+- Maintaining item quantities
+- Increasing quantity when a cancelled order releases items
+- Decreasing/reserving quantity when an order is placed
+
+The item data should initially be represented using a single table containing at least:
+
+- `codeId`
+- `name`
+- `quantity`
+
+Additional fields may be introduced if required for correctness, auditing, or scalability.
+
+### Payment Service / Payment Gateway Adapter
+A payment gateway should be treated as an external dependency.
+
+For this solution, the payment gateway can be simulated.
+
+The simulated gateway must support configurable runtime behavior so that it can return:
+
+- `SUCCESS`
+- `FAILURE`
+
+The configuration should be changeable at runtime without requiring code changes.
+
+---
+
+# 4. Order Lifecycle
+
+The system should clearly model the order lifecycle.
+
+A typical lifecycle could be:
+
+```text
+CREATE ORDER
+     |
+     v
+PENDING PAYMENT
+     |
+     +------ PAYMENT FAILURE ------> PAYMENT FAILED
+     |
+     v
+PAYMENT SUCCESS
+     |
+     v
+ORDER CONFIRMED
+     |
+     v
+COMPLETED
+```
+
+Cancellation should be supported according to the cancellation conditions defined in the problem statement.
+
+Both of the following must be supported:
+
+### Complete Order Cancellation
+
+The entire order is cancelled.
+
+Any items/quantities associated with the cancelled order must be returned to inventory so that they become available for future orders.
+
+### Partial Order Cancellation
+
+Only selected items/quantities from an order are cancelled.
+
+The cancelled quantity must be returned to inventory.
+
+The remaining order items continue through the normal order lifecycle, subject to the business rules defined in the problem statement.
+
+---
+
+# 5. Inventory / Item Handling
+
+Inventory correctness is critical.
+
+For every order operation, ensure that item quantity remains consistent.
+
+For example:
+
+```text
+Available Quantity = Current Quantity
+                     - Reserved/Ordered Quantity
+                     + Cancelled Quantity
+```
+
+A cancelled item must become available for ordering again.
+
+The implementation must protect inventory from:
+
+- Overselling
+- Race conditions
+- Lost updates
+- Concurrent cancellation
+- Concurrent order creation
+
+Use appropriate database-level and/or application-level concurrency mechanisms.
+
+---
+
+# 6. Concurrency Requirements
+
+Concurrency must be explicitly considered throughout the design.
+
+The system should correctly handle scenarios such as:
+
+### Scenario 1 — Two users order the last item
+
+```text
+Available Quantity = 1
+
+User A -> Order Item
+User B -> Order Item
+```
+
+Only one request should successfully obtain the available item.
+
+### Scenario 2 — Order and cancellation occur concurrently
+
+The system must prevent inconsistent inventory quantities.
+
+### Scenario 3 — Duplicate requests
+
+If the same order request is submitted multiple times, the system should avoid creating duplicate orders where applicable.
+
+Consider using:
+
+- Database transactions
+- Optimistic locking
+- Pessimistic locking where appropriate
+- Unique constraints
+- Idempotency keys
+- Atomic database updates
+- Kafka partitioning/keying where applicable
+
+Choose the mechanism based on the specific use case rather than applying one mechanism everywhere.
+
+Document the concurrency strategy in `Architecture.md`.
+
+---
+
+# 7. Design Patterns
+
+Use design patterns where they provide genuine value.
+
+The implementation should demonstrate appropriate use of:
+
+## Creational Patterns
+
+Examples:
+
+- Factory
+- Builder
+- Abstract Factory where justified
+
+Use them where object creation has meaningful variation or complexity.
+
+## Structural Patterns
+
+Examples:
+
+- Adapter
+- Facade
+- Decorator
+- Proxy
+
+The **Adapter pattern** is particularly relevant for integrating the external payment gateway.
+
+For example:
+
+```text
+Order Service
+      |
+      v
+PaymentGateway interface
+      |
+      +----------------------+
+      |                      |
+      v                      v
+MockPaymentGateway      ExternalPaymentGateway
+```
+
+## Behavioral Patterns
+
+Examples:
+
+- Strategy
+- State
+- Observer
+- Chain of Responsibility
+- Command
+
+A **Strategy/State-based approach** can be considered for order state transitions and cancellation rules.
+
+Do not force patterns into the implementation merely to demonstrate them. Every pattern used should have a clear reason.
+
+Document the selected patterns and their purpose in `Architecture.md`.
+
+---
+
+# 8. Payment Gateway
+
+Payment processing should be treated as an external dependency.
+
+Create an abstraction such as:
+
+```text
+PaymentGateway
+```
+
+with an implementation for the simulated gateway.
+
+The simulated gateway must support runtime configuration:
+
+```text
+PAYMENT_RESULT = SUCCESS
+```
+
+or
+
+```text
+PAYMENT_RESULT = FAILURE
+```
+
+Changing the configuration should affect subsequent payment requests without requiring application code changes.
+
+The design should allow a real payment provider to be integrated later without requiring major changes to the Order Service.
+
+---
+
+# 9. Fault Tolerance
+
+External service calls must be protected against failures.
+
+Implement a **Circuit Breaker** for payment gateway communication.
+
+Consider appropriate configurations for:
+
+- Failure threshold
+- Sliding window
+- Open state duration
+- Half-open state
+- Retry behavior, where appropriate
+- Timeout
+
+Do not blindly combine retries and circuit breakers. Document the reasoning.
+
+The system should have clearly defined behavior when the payment gateway is unavailable.
+
+For example:
+
+```text
+Order
+  |
+  v
+Payment Gateway
+  |
+  +---- Success ----> Confirm Order
+  |
+  +---- Failure ----> Payment Failed
+  |
+  +---- Timeout ----> Retry / Failure handling
+  |
+  +---- Circuit Open ----> Graceful failure
+```
+
+---
+
+# 10. Kafka / Messaging
+
+Use Kafka where asynchronous processing provides a meaningful benefit.
+
+Potential events include:
+
+```text
+OrderCreated
+PaymentSuccessful
+PaymentFailed
+OrderConfirmed
+OrderCancelled
+OrderPartiallyCancelled
+InventoryUpdated
+```
+
+The system should avoid unnecessary synchronous coupling between services.
+
+Where Kafka is used, consider:
+
+- Topic design
+- Event schema
+- Partition key
+- Consumer groups
+- Ordering requirements
+- Duplicate events
+- Idempotent consumers
+- Retry handling
+- Dead-letter topics where appropriate
+
+The design should account for the fact that Kafka provides **at-least-once delivery** unless stronger guarantees are explicitly implemented.
+
+---
+
+# 11. Database
+
+Use **PostgreSQL**.
+
+Each microservice should follow appropriate database ownership principles.
+
+Avoid tightly coupling multiple services through direct access to the same tables.
+
+At minimum, create the tables required for:
+
+### Item
+
+```text
+Item
+-------------------------
+code_id
+name
+quantity
+```
+
+Additional fields may be added where required, such as:
+
+```text
+created_at
+updated_at
+version
+```
+
+A `version` field may be used for optimistic locking.
+
+### Order
+
+The Order table should contain information required to represent the order lifecycle.
+
+For example:
+
+```text
+Order
+-------------------------
+id
+status
+total_amount
+created_at
+updated_at
+version
+```
+
+### Order Item
+
+Represent individual items belonging to an order.
+
+For example:
+
+```text
+OrderItem
+-------------------------
+id
+order_id
+item_code_id
+quantity
+status
+```
+
+Only create additional tables when they are required for the order-processing solution.
+
+Do not introduce unrelated business domains.
+
+---
+
+# 12. Transactions and Data Consistency
+
+Use Spring transactions where appropriate.
+
+Clearly identify transaction boundaries.
+
+For operations involving multiple database updates, ensure that partial updates cannot leave the system in an invalid state.
+
+For example:
+
+```text
+Create Order
+    |
+    +-- Validate Item
+    |
+    +-- Reserve Quantity
+    |
+    +-- Create Order
+    |
+    +-- Commit
+```
+
+The design must also address the distributed transaction problem when database operations and Kafka publishing are involved.
+
+Consider appropriate patterns such as:
+
+- Transactional Outbox
+- Idempotent Consumers
+- Eventual Consistency
+
+Use these only where justified by the architecture.
+
+Document the selected approach.
+
+---
+
+# 13. REST APIs
+
+All supported functionality must be exposed through REST APIs.
+
+There must be no dependency on a UI.
+
+At minimum, APIs should support:
+
+### Item APIs
+
+```text
+GET    /api/items
+GET    /api/items/{codeId}
+```
+
+Additional APIs may be added if required.
+
+### Order APIs
+
+```text
+POST   /api/orders
+GET    /api/orders/{orderId}
+GET    /api/orders
+POST   /api/orders/{orderId}/cancel
+POST   /api/orders/{orderId}/items/{itemId}/cancel
+```
+
+The exact API contract should be derived from the problem statement.
+
+APIs should include:
+
+- Request validation
+- Appropriate HTTP status codes
+- Meaningful error responses
+- Idempotency where required
+- API documentation
+
+Use OpenAPI/Swagger if appropriate.
+
+---
+
+# 14. Cancellation
+
+Cancellation must follow the cancellation conditions defined in the problem statement.
+
+Support:
+
+### Full Cancellation
+
+```text
+POST /api/orders/{orderId}/cancel
+```
+
+### Partial Cancellation
+
+```text
+POST /api/orders/{orderId}/items/{itemId}/cancel
+```
+
+The system must ensure:
+
+1. Cancellation is allowed only when business rules permit it.
+2. Cancelled quantities are returned to inventory.
+3. The same quantity cannot be cancelled twice.
+4. Concurrent cancellation requests are handled safely.
+5. Payment/refund behavior is handled according to the defined requirements.
+6. The order status is correctly updated after partial cancellation.
+
+---
+
+# 15. Scheduling
+
+Use appropriate **Spring Boot/Spring Framework scheduling capabilities** for scheduled operations.
+
+Examples may include:
+
+- Detecting stale orders
+- Payment timeout handling
+- Retry processing
+- Cleanup of expired data
+- Reconciliation jobs
+
+Use:
+
+```java
+@Scheduled
+```
+
+or an appropriate Spring scheduling mechanism.
+
+Scheduled jobs must be designed carefully for a microservices environment so that multiple instances do not unintentionally execute the same job simultaneously.
+
+If distributed scheduling is required, consider an appropriate distributed locking mechanism.
+
+---
+
+# 16. Unit and Integration Testing
+
+Testing is mandatory.
+
+Develop comprehensive unit tests using:
+
+- JUnit 5
+- Mockito
+
+Test at minimum:
+
+### Order creation
+
+- Valid order
+- Invalid item
+- Insufficient quantity
+- Multiple items
+- Empty order
+- Invalid quantity
+
+### Payment
+
+- Payment success
+- Payment failure
+- Payment timeout
+- Payment gateway unavailable
+- Circuit breaker behavior
+
+### Cancellation
+
+- Full cancellation
+- Partial cancellation
+- Invalid cancellation
+- Duplicate cancellation
+- Cancellation after completion
+- Concurrent cancellation
+
+### Concurrency
+
+Test scenarios involving:
+
+- Multiple users ordering the same item
+- Multiple requests for the same order
+- Concurrent cancellation
+- Inventory update conflicts
+
+### Kafka
+
+Test:
+
+- Event publishing
+- Event consumption
+- Duplicate events
+- Idempotent processing
+- Failure/retry scenarios
+
+Integration tests should be added where interaction with PostgreSQL/Kafka is important.
+
+Use Testcontainers where appropriate.
+
+---
+
+# 17. API Testing
+
+Since there is no frontend, APIs must be directly testable.
+
+Provide:
+
+- Swagger/OpenAPI
+- Example request/response payloads
+- Error response examples
+- Postman collection if useful
+- curl examples for important APIs
+
+The project should be runnable locally and allow an evaluator/developer to test the complete order lifecycle through APIs.
+
+---
+
+# 18. Documentation
+
+The repository must contain the following documents.
+
+## Agents.md
+
+Provide instructions for AI coding agents/developers working on the repository.
+
+It should describe:
+
+- Project structure
+- Coding conventions
+- How to build
+- How to test
+- How to run locally
+- Architecture rules
+- Important implementation constraints
+- Rules for adding new features
+- Database migration rules
+- Testing expectations
+
+## Architecture.md
+
+Document:
+
+- Overall architecture
+- Microservices
+- Responsibilities
+- Component interactions
+- Order lifecycle
+- Database design
+- API design
+- Kafka/event architecture
+- Concurrency strategy
+- Transaction boundaries
+- Circuit breaker
+- Design patterns used
+- Failure scenarios
+- Scalability considerations
+- Trade-offs and design decisions
+
+Include diagrams using Mermaid where useful.
+
+## README.md
+
+The README should provide a quick-start guide containing:
+
+- Project overview
+- Architecture summary
+- Prerequisites
+- Technology stack
+- How to run
+- Database setup
+- Kafka setup
+- Configuration
+- API endpoints
+- Example API calls
+- How to run tests
+- Example order-processing flow
+
+---
+
+# 19. Scalability
+
+The architecture should allow additional features to be introduced later without major restructuring.
+
+Consider:
+
+- Stateless services
+- Horizontal scaling
+- Database indexing
+- Connection pooling
+- Kafka-based asynchronous processing
+- Idempotency
+- Caching where appropriate
+- Pagination
+- API versioning
+- Distributed tracing
+- Centralized logging
+- Metrics and health checks
+
+Do not prematurely optimize or introduce infrastructure that is not required.
+
+The primary objective is a **clean, extensible order-processing architecture**.
+
+---
+
+# 20. Observability
+
+The solution should provide sufficient observability for debugging and production operation.
+
+Consider:
+
+- Structured logging
+- Correlation/request IDs
+- Spring Boot Actuator
+- Health checks
+- Metrics
+- Kafka consumer monitoring
+- Circuit breaker metrics
+
+A request should be traceable across services where possible.
+
+Example:
+
+```text
+Client
+  |
+  | correlationId
+  v
+Order Service
+  |
+  +----> Inventory Service
+  |
+  +----> Payment Service
+  |
+  +----> Kafka
+          |
+          +----> Other Consumers
+```
+
+---
+
+# 21. Error Handling
+
+Implement centralized and consistent REST error handling.
+
+Use appropriate mechanisms such as:
+
+```text
+@ControllerAdvice
+```
+
+Error responses should provide:
+
+- Error code
+- Message
+- Request/correlation ID
+- Timestamp
+- Relevant details where appropriate
+
+Do not expose internal stack traces or implementation details through APIs.
+
+---
+
+# 22. Security
+
+Security should be considered in the API design.
+
+At minimum:
+
+- Validate all incoming requests
+- Avoid trusting client-provided calculated values
+- Validate quantities and identifiers
+- Prevent unauthorized modification of orders
+- Do not expose sensitive payment information
+- Keep secrets/configuration outside source code
+
+Authentication/authorization can be kept lightweight if it is not part of the problem statement, but the design should allow security to be added later.
+
+---
+
+# 23. Configuration
+
+Application configuration should be externalized.
+
+Examples:
+
+```text
+Database configuration
+Kafka configuration
+Payment gateway behavior
+Circuit breaker configuration
+Scheduling configuration
+```
+
+Environment-specific configuration should not require source-code changes.
+
+The simulated payment gateway result must specifically be configurable at runtime.
+
+---
+
+# 24. Code Quality Guidelines
+
+Follow clean-code and maintainability principles.
+
+Prefer:
+
+- SOLID principles
+- Dependency Injection
+- Interface-based abstractions where useful
+- Small focused classes
+- Clear package boundaries
+- Meaningful names
+- Immutable DTOs where appropriate
+- Validation at API boundaries
+- Proper exception handling
+- Avoiding unnecessary abstractions
+
+Do not create classes/interfaces solely to demonstrate design patterns.
+
+Every abstraction should have a clear purpose.
+
+---
+
+# 25. Expected Deliverable
+
+The final repository should contain a complete, runnable solution with:
+
+```text
+order-processing-system/
+│
+├── README.md
+├── Agents.md
+├── Architecture.md
+│
+├── order-service/
+├── inventory-service/
+├── payment-service/
+│
+│
+└── ...
+```
+
+The exact project structure can be adjusted based on the final architecture.
+
+The solution should be runnable locally and should allow the complete flow to be tested:
+
+```text
+Create Item
+     |
+     v
+Create Order
+     |
+     v
+Reserve Inventory
+     |
+     v
+Process Payment
+     |
+     +---- FAILURE ----> Order Failed
+     |
+     +---- SUCCESS ----> Order Confirmed
+                              |
+                              v
+                           Complete
+                              |
+                              v
+                     Full/Partial Cancellation
+                              |
+                              v
+                     Inventory Restored
+                              |
+                              v
+                   Item Available Again
+```
+
+# 26. Implementation Principle
+
+The implementation should prioritize **correctness and clarity over unnecessary complexity**.
+
+The primary business problem is:
+
+> **Build a reliable, concurrent, scalable Order Processing System that correctly manages orders, inventory, payment outcomes, and full/partial cancellations.**
+
+Supporting technologies such as Kafka, circuit breakers, scheduling, and microservices should be introduced where they solve real architectural problems rather than simply being added for demonstration.
+
+The solution should be designed so that additional capabilities can be added later without requiring a fundamental redesign.
+
+DO not  invent business rules when the problem statement already defines them
+Avoid Docker Use.
